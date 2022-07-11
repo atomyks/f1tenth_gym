@@ -59,11 +59,12 @@ class RaceCar(object):
     scan_angles = None
     side_distances = None
 
-    def __init__(self, params, seed, is_ego=False, time_step=0.01, num_beams=1080, fov=4.7):
+    def __init__(self, model, params, seed, is_ego=False, time_step=0.01, num_beams=1080, fov=4.7):
         """
         Init function
 
         Args:
+            model (str): vehicle model to use. Options: 'dynamic_ST' - dynamic single track model, 'MB' - multi body model
             params (dict): vehicle parameter dictionary, includes {'mu', 'C_Sf', 'C_Sr', 'lf', 'lr', 'h', 'm', 'I', 's_min', 's_max', 'sv_min', 'sv_max', 'v_switch', 'a_max': 9.51, 'v_min', 'v_max', 'length', 'width'}
             is_ego (bool, default=False): ego identifier
             time_step (float, default=0.01): physics sim time step
@@ -75,6 +76,7 @@ class RaceCar(object):
         """
 
         # initialization
+        self.model = model
         self.params = params
         self.seed = seed
         self.is_ego = is_ego
@@ -82,8 +84,11 @@ class RaceCar(object):
         self.num_beams = num_beams
         self.fov = fov
 
-        # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
-        self.state = np.zeros((7, ))
+        if self.model == 'dynamic_ST':
+            # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
+            self.state = np.zeros((7, ))
+        elif self.model == 'MB':
+            pass # TODO init MB model
 
         # pose of opponents in the world
         self.opp_poses = None
@@ -184,7 +189,10 @@ class RaceCar(object):
         # clear collision indicator
         self.in_collision = False
         # clear state
-        self.state = np.zeros((7, ))
+        if self.model == 'dynamic_ST':
+            self.state = np.zeros((7, ))
+        elif self.model == 'MB':
+            pass
         self.state[0:2] = pose[0:2]
         self.state[4] = pose[2]
         self.steer_buffer = np.empty((0, ))
@@ -270,26 +278,28 @@ class RaceCar(object):
         accl, sv = pid(vel, steer, self.state[3], self.state[2], self.params['sv_max'], self.params['a_max'], self.params['v_max'], self.params['v_min'])
         
         # update physics, get RHS of diff'eq
-        f = vehicle_dynamics_st(
-            self.state,
-            np.array([sv, accl]),
-            self.params['mu'],
-            self.params['C_Sf'],
-            self.params['C_Sr'],
-            self.params['lf'],
-            self.params['lr'],
-            self.params['h'],
-            self.params['m'],
-            self.params['I'],
-            self.params['s_min'],
-            self.params['s_max'],
-            self.params['sv_min'],
-            self.params['sv_max'],
-            self.params['v_switch'],
-            self.params['a_max'],
-            self.params['v_min'],
-            self.params['v_max'])
-
+        if self.model == 'dynamic_ST':
+            f = vehicle_dynamics_st(
+                self.state,
+                np.array([sv, accl]),
+                self.params['mu'],
+                self.params['C_Sf'],
+                self.params['C_Sr'],
+                self.params['lf'],
+                self.params['lr'],
+                self.params['h'],
+                self.params['m'],
+                self.params['I'],
+                self.params['s_min'],
+                self.params['s_max'],
+                self.params['sv_min'],
+                self.params['sv_max'],
+                self.params['v_switch'],
+                self.params['a_max'],
+                self.params['v_min'],
+                self.params['v_max'])
+        elif self.model == 'MB':
+            pass
         # update state
         self.state = self.state + f * self.time_step
 
@@ -354,11 +364,12 @@ class Simulator(object):
 
     """
 
-    def __init__(self, params, num_agents, seed, time_step=0.01, ego_idx=0):
+    def __init__(self, model, params, num_agents, seed, time_step=0.01, ego_idx=0):
         """
         Init function
 
         Args:
+            model (str): vehicle model to use. Options: 'dynamic_ST' - dynamic single track model, 'MB' - multi body model
             params (dict): vehicle parameter dictionary, includes {'mu', 'C_Sf', 'C_Sr', 'lf', 'lr', 'h', 'm', 'I', 's_min', 's_max', 'sv_min', 'sv_max', 'v_switch', 'a_max', 'v_min', 'v_max', 'length', 'width'}
             num_agents (int): number of agents in the environment
             seed (int): seed of the rng in scan simulation
@@ -368,6 +379,7 @@ class Simulator(object):
         Returns:
             None
         """
+        self.model = model
         self.num_agents = num_agents
         self.seed = seed
         self.time_step = time_step
@@ -381,10 +393,10 @@ class Simulator(object):
         # initializing agents
         for i in range(self.num_agents):
             if i == ego_idx:
-                ego_car = RaceCar(params, self.seed, is_ego=True)
+                ego_car = RaceCar(self.model, params, self.seed, is_ego=True)
                 self.agents.append(ego_car)
             else:
-                agent = RaceCar(params, self.seed)
+                agent = RaceCar(self.model, params, self.seed)
                 self.agents.append(agent)
 
     def set_map(self, map_path, map_ext):
