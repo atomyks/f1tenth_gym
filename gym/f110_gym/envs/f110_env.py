@@ -32,6 +32,9 @@ from gym.utils import seeding
 # base classes
 from f110_gym.envs.base_classes import Simulator
 
+# temporary
+from unit_conversions import *
+
 # others
 import numpy as np
 import os
