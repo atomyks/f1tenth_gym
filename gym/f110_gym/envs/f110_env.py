@@ -33,7 +33,7 @@ from gym.utils import seeding
 from f110_gym.envs.base_classes import Simulator
 
 # temporary
-from unit_conversions import *
+import f110_gym.envs.unit_conversions as unitConversion
 
 # others
 import numpy as np
