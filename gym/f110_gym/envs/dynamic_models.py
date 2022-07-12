@@ -25,6 +25,7 @@ from numba import njit
 
 import unittest
 import time
+import f110_gym.envs.tire_models as tireModel
 
 @njit(cache=True)
 def accl_constraints(vel, accl, v_switch, a_max, v_min, v_max):
@@ -430,36 +431,36 @@ def vehicle_dynamics_mb(x, uInit, params):
     gamma_RR = x[6] - D_r*z_SRR - E_r*(z_SRR)**2
 
     #compute longitudinal tire forces using the magic formula for pure slip
-    F0_x_LF = 0#tireModel.formula_longitudinal(s_lf, gamma_LF, F_z_LF, p.tire) # TODO tire model
-    F0_x_RF = 0#tireModel.formula_longitudinal(s_rf, gamma_RF, F_z_RF, p.tire)
-    F0_x_LR = 0#tireModel.formula_longitudinal(s_lr, gamma_LR, F_z_LR, p.tire)
-    F0_x_RR = 0#tireModel.formula_longitudinal(s_rr, gamma_RR, F_z_RR, p.tire)
+    F0_x_LF = tireModel.formula_longitudinal(s_lf, gamma_LF, F_z_LF, p.tire) # TODO tire model
+    F0_x_RF = tireModel.formula_longitudinal(s_rf, gamma_RF, F_z_RF, p.tire)
+    F0_x_LR = tireModel.formula_longitudinal(s_lr, gamma_LR, F_z_LR, p.tire)
+    F0_x_RR = tireModel.formula_longitudinal(s_rr, gamma_RR, F_z_RR, p.tire)
 
     #compute lateral tire forces using the magic formula for pure slip
-    res = [0,0]#tireModel.formula_lateral(alpha_LF, gamma_LF, F_z_LF, p.tire)
+    res = tireModel.formula_lateral(alpha_LF, gamma_LF, F_z_LF, p.tire)
     F0_y_LF = res[0]
     mu_y_LF = res[1]
-    res = [0,0]#tireModel.formula_lateral(alpha_RF, gamma_RF, F_z_RF, p.tire)
+    res = tireModel.formula_lateral(alpha_RF, gamma_RF, F_z_RF, p.tire)
     F0_y_RF = res[0]
     mu_y_RF = res[1]
-    res = [0,0]#tireModel.formula_lateral(alpha_LR, gamma_LR, F_z_LR, p.tire)
+    res = tireModel.formula_lateral(alpha_LR, gamma_LR, F_z_LR, p.tire)
     F0_y_LR = res[0]
     mu_y_LR = res[1]
-    res = [0,0]#tireModel.formula_lateral(alpha_RR, gamma_RR, F_z_RR, p.tire)
+    res = tireModel.formula_lateral(alpha_RR, gamma_RR, F_z_RR, p.tire)
     F0_y_RR = res[0]
     mu_y_RR = res[1]
 
     #compute longitudinal tire forces using the magic formula for combined slip
-    F_x_LF = 0#tireModel.formula_longitudinal_comb(s_lf, alpha_LF, F0_x_LF, p.tire)
-    F_x_RF = 0#tireModel.formula_longitudinal_comb(s_rf, alpha_RF, F0_x_RF, p.tire)
-    F_x_LR = 0#tireModel.formula_longitudinal_comb(s_lr, alpha_LR, F0_x_LR, p.tire)
-    F_x_RR = 0#tireModel.formula_longitudinal_comb(s_rr, alpha_RR, F0_x_RR, p.tire)
+    F_x_LF = tireModel.formula_longitudinal_comb(s_lf, alpha_LF, F0_x_LF, p.tire)
+    F_x_RF = tireModel.formula_longitudinal_comb(s_rf, alpha_RF, F0_x_RF, p.tire)
+    F_x_LR = tireModel.formula_longitudinal_comb(s_lr, alpha_LR, F0_x_LR, p.tire)
+    F_x_RR = tireModel.formula_longitudinal_comb(s_rr, alpha_RR, F0_x_RR, p.tire)
 
     #compute lateral tire forces using the magic formula for combined slip
-    F_y_LF = 0#tireModel.formula_lateral_comb(s_lf, alpha_LF, gamma_LF, mu_y_LF, F_z_LF, F0_y_LF, p.tire)
-    F_y_RF = 0#tireModel.formula_lateral_comb(s_rf, alpha_RF, gamma_RF, mu_y_RF, F_z_RF, F0_y_RF, p.tire)
-    F_y_LR = 0#tireModel.formula_lateral_comb(s_lr, alpha_LR, gamma_LR, mu_y_LR, F_z_LR, F0_y_LR, p.tire)
-    F_y_RR = 0#tireModel.formula_lateral_comb(s_rr, alpha_RR, gamma_RR, mu_y_RR, F_z_RR, F0_y_RR, p.tire)
+    F_y_LF = tireModel.formula_lateral_comb(s_lf, alpha_LF, gamma_LF, mu_y_LF, F_z_LF, F0_y_LF, p.tire)
+    F_y_RF = tireModel.formula_lateral_comb(s_rf, alpha_RF, gamma_RF, mu_y_RF, F_z_RF, F0_y_RF, p.tire)
+    F_y_LR = tireModel.formula_lateral_comb(s_lr, alpha_LR, gamma_LR, mu_y_LR, F_z_LR, F0_y_LR, p.tire)
+    F_y_RR = tireModel.formula_lateral_comb(s_rr, alpha_RR, gamma_RR, mu_y_RR, F_z_RR, F0_y_RR, p.tire)
 
     #auxiliary movements for compliant joint equations
     delta_z_f = h_s - R_w + x[16] - x[11]
@@ -553,7 +554,7 @@ def vehicle_dynamics_mb(x, uInit, params):
         # Use kinematic model with reference point at center of mass
         # wheelbase
         lwb = lf + lr
-        # TODO done
+
         # system dynamics
         x_ks = x[0:5]
         # kinematic model
