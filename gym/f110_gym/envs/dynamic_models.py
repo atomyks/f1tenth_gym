@@ -315,42 +315,6 @@ def vehicle_dynamics_mb(x, uInit, params):
     E_f = params[44]  # [needs conversion if nonzero]  EF
     E_r = params[45]  # [needs conversion if nonzero]  ER
 
-    # tire parameters from ADAMS handbook
-    # longitudinal coefficients
-    tire_p_cx1 = params[46]  # Shape factor Cfx for longitudinal force
-    tire_p_dx1 = params[47]  # Longitudinal friction Mux at Fznom
-    tire_p_dx3 = params[48]  # Variation of friction Mux with camber
-    tire_p_ex1 = params[49]  # Longitudinal curvature Efx at Fznom
-    tire_p_kx1 = params[50]  # Longitudinal slip stiffness Kfx/Fz at Fznom
-    tire_p_hx1 = params[51]  # Horizontal shift Shx at Fznom
-    tire_p_vx1 = params[52]  # Vertical shift Svx/Fz at Fznom
-    tire_r_bx1 = params[53]  # Slope factor for combined slip Fx reduction
-    tire_r_bx2 = params[54]  # Variation of slope Fx reduction with kappa
-    tire_r_cx1 = params[55]  # Shape factor for combined slip Fx reduction
-    tire_r_ex1 = params[56]  # Curvature factor of combined Fx
-    tire_r_hx1 = params[57]  # Shift factor for combined slip Fx reduction
-
-    # lateral coefficients
-    tire_p_cy1 = params[58]  # Shape factor Cfy for lateral forces
-    tire_p_dy1 = params[59]  # Lateral friction Muy
-    tire_p_dy3 = params[60]  # Variation of friction Muy with squared camber
-    tire_p_ey1 = params[61]  # Lateral curvature Efy at Fznom
-    tire_p_ky1 = params[62]  # Maximum value of stiffness Kfy/Fznom
-    tire_p_hy1 = params[63]  # Horizontal shift Shy at Fznom
-    tire_p_hy3 = params[64]  # Variation of shift Shy with camber
-    tire_p_vy1 = params[65]  # Vertical shift in Svy/Fz at Fznom
-    tire_p_vy3 = params[66]  # Variation of shift Svy/Fz with camber
-    tire_r_by1 = params[67]  # Slope factor for combined Fy reduction
-    tire_r_by2 = params[68]  # Variation of slope Fy reduction with alpha
-    tire_r_by3 = params[69]  # Shift term for alpha in slope Fy reduction
-    tire_r_cy1 = params[70]  # Shape factor for combined Fy reduction
-    tire_r_ey1 = params[71]  # Curvature factor of combined Fy
-    tire_r_hy1 = params[72]  # Shift factor for combined Fy reduction
-    tire_r_vy1 = params[73]  # Kappa induced side force Svyk/Muy*Fz at Fznom
-    tire_r_vy3 = params[74]  # Variation of Svyk/Muy*Fz with camber
-    tire_r_vy4 = params[75]  # Variation of Svyk/Muy*Fz with alpha
-    tire_r_vy5 = params[76]  # Variation of Svyk/Muy*Fz with kappa
-    tire_r_vy6 = params[77]  # Variation of Svyk/Muy*Fz with atan(kappa)
 
     # consider steering and acceleration constraints
     u = np.array([steering_constraint(x[2], u_init[0], s_min, s_max, sv_min, sv_max), accl_constraints(x[3], u_init[1], v_switch, a_max, v_min, v_max)])
@@ -431,36 +395,36 @@ def vehicle_dynamics_mb(x, uInit, params):
     gamma_RR = x[6] - D_r*z_SRR - E_r*(z_SRR)**2
 
     #compute longitudinal tire forces using the magic formula for pure slip
-    F0_x_LF = tireModel.formula_longitudinal(s_lf, gamma_LF, F_z_LF, p.tire) # TODO tire model
-    F0_x_RF = tireModel.formula_longitudinal(s_rf, gamma_RF, F_z_RF, p.tire)
-    F0_x_LR = tireModel.formula_longitudinal(s_lr, gamma_LR, F_z_LR, p.tire)
-    F0_x_RR = tireModel.formula_longitudinal(s_rr, gamma_RR, F_z_RR, p.tire)
+    F0_x_LF = tireModel.formula_longitudinal(s_lf, gamma_LF, F_z_LF, params) # TODO tire model
+    F0_x_RF = tireModel.formula_longitudinal(s_rf, gamma_RF, F_z_RF, params)
+    F0_x_LR = tireModel.formula_longitudinal(s_lr, gamma_LR, F_z_LR, params)
+    F0_x_RR = tireModel.formula_longitudinal(s_rr, gamma_RR, F_z_RR, params)
 
     #compute lateral tire forces using the magic formula for pure slip
-    res = tireModel.formula_lateral(alpha_LF, gamma_LF, F_z_LF, p.tire)
+    res = tireModel.formula_lateral(alpha_LF, gamma_LF, F_z_LF, params)
     F0_y_LF = res[0]
     mu_y_LF = res[1]
-    res = tireModel.formula_lateral(alpha_RF, gamma_RF, F_z_RF, p.tire)
+    res = tireModel.formula_lateral(alpha_RF, gamma_RF, F_z_RF, params)
     F0_y_RF = res[0]
     mu_y_RF = res[1]
-    res = tireModel.formula_lateral(alpha_LR, gamma_LR, F_z_LR, p.tire)
+    res = tireModel.formula_lateral(alpha_LR, gamma_LR, F_z_LR, params)
     F0_y_LR = res[0]
     mu_y_LR = res[1]
-    res = tireModel.formula_lateral(alpha_RR, gamma_RR, F_z_RR, p.tire)
+    res = tireModel.formula_lateral(alpha_RR, gamma_RR, F_z_RR, params)
     F0_y_RR = res[0]
     mu_y_RR = res[1]
 
     #compute longitudinal tire forces using the magic formula for combined slip
-    F_x_LF = tireModel.formula_longitudinal_comb(s_lf, alpha_LF, F0_x_LF, p.tire)
-    F_x_RF = tireModel.formula_longitudinal_comb(s_rf, alpha_RF, F0_x_RF, p.tire)
-    F_x_LR = tireModel.formula_longitudinal_comb(s_lr, alpha_LR, F0_x_LR, p.tire)
-    F_x_RR = tireModel.formula_longitudinal_comb(s_rr, alpha_RR, F0_x_RR, p.tire)
+    F_x_LF = tireModel.formula_longitudinal_comb(s_lf, alpha_LF, F0_x_LF, params)
+    F_x_RF = tireModel.formula_longitudinal_comb(s_rf, alpha_RF, F0_x_RF, params)
+    F_x_LR = tireModel.formula_longitudinal_comb(s_lr, alpha_LR, F0_x_LR, params)
+    F_x_RR = tireModel.formula_longitudinal_comb(s_rr, alpha_RR, F0_x_RR, params)
 
     #compute lateral tire forces using the magic formula for combined slip
-    F_y_LF = tireModel.formula_lateral_comb(s_lf, alpha_LF, gamma_LF, mu_y_LF, F_z_LF, F0_y_LF, p.tire)
-    F_y_RF = tireModel.formula_lateral_comb(s_rf, alpha_RF, gamma_RF, mu_y_RF, F_z_RF, F0_y_RF, p.tire)
-    F_y_LR = tireModel.formula_lateral_comb(s_lr, alpha_LR, gamma_LR, mu_y_LR, F_z_LR, F0_y_LR, p.tire)
-    F_y_RR = tireModel.formula_lateral_comb(s_rr, alpha_RR, gamma_RR, mu_y_RR, F_z_RR, F0_y_RR, p.tire)
+    F_y_LF = tireModel.formula_lateral_comb(s_lf, alpha_LF, gamma_LF, mu_y_LF, F_z_LF, F0_y_LF, params)
+    F_y_RF = tireModel.formula_lateral_comb(s_rf, alpha_RF, gamma_RF, mu_y_RF, F_z_RF, F0_y_RF, params)
+    F_y_LR = tireModel.formula_lateral_comb(s_lr, alpha_LR, gamma_LR, mu_y_LR, F_z_LR, F0_y_LR, params)
+    F_y_RR = tireModel.formula_lateral_comb(s_rr, alpha_RR, gamma_RR, mu_y_RR, F_z_RR, F0_y_RR, params)
 
     #auxiliary movements for compliant joint equations
     delta_z_f = h_s - R_w + x[16] - x[11]
