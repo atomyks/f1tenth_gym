@@ -45,7 +45,12 @@ class RaceCar(object):
         time_step (float): physics timestep
         num_beams (int): number of beams in laser
         fov (float): field of view of laser
-        state (np.ndarray (7, )): state vector [x, y, theta, vel, steer_angle, ang_vel, slip_angle]
+        state (for dynamic_ST model) (np.ndarray (7, )): state vector [x, y, theta, vel, steer_angle, ang_vel, slip_angle]
+        state (for MB model) (np.ndarray (29, )): state vector [x, y, steering angle of front wheels, velocity in x-direction,
+            yaw angle, yaw rate, roll angle, roll rate, pitch angle, pitch rate, velocity in y-direction, z-position, velocity in z-direction,
+            roll angle front, roll rate front, velocity in y-direction front, z-position front, velocity in z-direction front, roll angle rear,
+            roll rate rear, velocity in y-direction rear, z-position rear, velocity in z-direction rear, left front wheel angular speed,
+            right front wheel angular speed, left rear wheel angular speed, right rear wheel angular speed, delta_y_f, delta_y_r]
         odom (np.ndarray(13, )): odometry vector [x, y, z, qx, qy, qz, qw, linear_x, linear_y, linear_z, angular_x, angular_y, angular_z]
         accel (float): current acceleration input
         steer_angle_vel (float): current steering velocity input
@@ -88,7 +93,7 @@ class RaceCar(object):
             # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
             self.state = np.zeros((7, ))
         elif self.model == 'MB':
-            pass # TODO init MB model
+            self.state = np.zeros((29, ))
 
         # pose of opponents in the world
         self.opp_poses = None
@@ -192,7 +197,7 @@ class RaceCar(object):
         if self.model == 'dynamic_ST':
             self.state = np.zeros((7, ))
         elif self.model == 'MB':
-            pass
+            self.state = np.zeros((29, ))
         self.state[0:2] = pose[0:2]
         self.state[4] = pose[2]
         self.steer_buffer = np.empty((0, ))
@@ -240,7 +245,7 @@ class RaceCar(object):
 
         # if in collision stop vehicle
         if in_collision:
-            self.state[3:] = 0.
+            self.state[3:] = 0. # TODO maybe colision handling needs to be changed while using MB model
             self.accel = 0.0
             self.steer_angle_vel = 0.0
 
@@ -299,6 +304,7 @@ class RaceCar(object):
                 self.params['v_min'],
                 self.params['v_max'])
         elif self.model == 'MB':
+            # params_array = np.array(list(self.params.values()))
             pass
         # update state
         self.state = self.state + f * self.time_step
