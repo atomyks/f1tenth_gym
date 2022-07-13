@@ -247,7 +247,7 @@ class RaceCar(object):
 
         # if in collision stop vehicle
         if in_collision:
-            self.state[3:] = 0. # TODO maybe colision handling needs to be changed while using MB model
+            self.state[3:] = 0.
             self.accel = 0.0
             self.steer_angle_vel = 0.0
 

@@ -13,9 +13,11 @@
 
 
 import numpy as np
+from numba import njit
 
 
 # longitudinal tire forces
+@njit(cache=True)
 def formula_longitudinal(kappa, gamma, F_z, params):
 
     # longitudinal coefficients
@@ -50,6 +52,7 @@ def formula_longitudinal(kappa, gamma, F_z, params):
 
 
 # lateral tire forces
+@njit(cache=True)
 def formula_lateral(alpha, gamma, F_z, params):
 
     # lateral coefficients
@@ -91,6 +94,7 @@ def formula_lateral(alpha, gamma, F_z, params):
 
 
 # longitudinal tire forces for combined slip
+@njit(cache=True)
 def formula_longitudinal_comb(kappa, alpha, F0_x, params):
 
     # longitudinal coefficients
@@ -119,6 +123,7 @@ def formula_longitudinal_comb(kappa, alpha, F0_x, params):
 
 
 # lateral tire forces for combined slip
+@njit(cache=True)
 def formula_lateral_comb(kappa, alpha, gamma, mu_y, F_z, F0_y, params):
 
     # lateral coefficients

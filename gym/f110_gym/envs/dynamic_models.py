@@ -176,7 +176,7 @@ def vehicle_dynamics_st(x, u_init, mu, C_Sf, C_Sr, lf, lr, h, m, I, s_min, s_max
 
     return f
 
-
+@njit(cache=True)
 def init_mb(init_state, params):
     # init_MB - generates the initial state vector for the multi-body model
     #
@@ -286,7 +286,7 @@ def init_mb(init_state, params):
     return x0
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def vehicle_dynamics_mb(x, u_init, params):
     """
     vehicleDynamics_mb - multi-body vehicle dynamics based on the DOT (department of transportation) vehicle dynamics
@@ -505,7 +505,7 @@ def vehicle_dynamics_mb(x, u_init, params):
     gamma_RR = x[6] - D_r*z_SRR - E_r*(z_SRR)**2
 
     #compute longitudinal tire forces using the magic formula for pure slip
-    F0_x_LF = tireModel.formula_longitudinal(s_lf, gamma_LF, F_z_LF, params) # TODO tire model
+    F0_x_LF = tireModel.formula_longitudinal(s_lf, gamma_LF, F_z_LF, params)
     F0_x_RF = tireModel.formula_longitudinal(s_rf, gamma_RF, F_z_RF, params)
     F0_x_LR = tireModel.formula_longitudinal(s_lr, gamma_LR, F_z_LR, params)
     F0_x_RR = tireModel.formula_longitudinal(s_rr, gamma_RR, F_z_RR, params)
