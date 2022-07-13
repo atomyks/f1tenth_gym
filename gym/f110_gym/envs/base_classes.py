@@ -403,10 +403,10 @@ class Simulator(object):
         # initializing agents
         for i in range(self.num_agents):
             if i == ego_idx:
-                ego_car = RaceCar(self.model, params, self.seed, is_ego=True)
+                ego_car = RaceCar(self.model, params, self.seed, time_step=self.time_step, is_ego=True)
                 self.agents.append(ego_car)
             else:
-                agent = RaceCar(self.model, params, self.seed)
+                agent = RaceCar(self.model, params, self.seed, time_step=self.time_step)
                 self.agents.append(agent)
 
     def set_map(self, map_path, map_ext):
