@@ -31,7 +31,7 @@ Author: Hongrui Zheng
 import numpy as np
 from numba import njit
 
-from f110_gym.envs.dynamic_models import vehicle_dynamics_st, vehicle_dynamics_mb, pid
+from f110_gym.envs.dynamic_models import vehicle_dynamics_st, vehicle_dynamics_mb, init_mb, pid
 from f110_gym.envs.laser_models import ScanSimulator2D, check_ttc_jit, ray_cast
 from f110_gym.envs.collision_models import get_vertices, collision_multiple
 
@@ -93,7 +93,8 @@ class RaceCar(object):
             # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
             self.state = np.zeros((7, ))
         elif self.model == 'MB':
-            self.state = np.zeros((29, ))
+            params_array = np.array(list(self.params.values()))
+            self.state = init_mb(np.zeros((7, )), params_array)
 
         # pose of opponents in the world
         self.opp_poses = None
@@ -196,10 +197,11 @@ class RaceCar(object):
         # clear state
         if self.model == 'dynamic_ST':
             self.state = np.zeros((7, ))
+            self.state[0:2] = pose[0:2]
+            self.state[4] = pose[2]
         elif self.model == 'MB':
-            self.state = np.zeros((29, ))
-        self.state[0:2] = pose[0:2]
-        self.state[4] = pose[2]
+            params_array = np.array(list(self.params.values()))
+            self.state = init_mb(np.array([pose[0], pose[1], 0, 0, pose[2], 0, 0]), params_array)
         self.steer_buffer = np.empty((0, ))
         # reset scan random generator
         self.scan_rng = np.random.default_rng(seed=self.seed)
@@ -304,8 +306,10 @@ class RaceCar(object):
                 self.params['v_min'],
                 self.params['v_max'])
         elif self.model == 'MB':
-            # params_array = np.array(list(self.params.values()))
-            pass
+            params_array = np.array(list(self.params.values()))
+            f = vehicle_dynamics_mb(self.state, np.array([sv, accl]), params_array)
+            # print(f)
+
         # update state
         self.state = self.state + f * self.time_step
 
