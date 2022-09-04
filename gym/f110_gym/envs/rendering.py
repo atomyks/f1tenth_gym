@@ -44,8 +44,8 @@ ZOOM_IN_FACTOR = 1.2
 ZOOM_OUT_FACTOR = 1/ZOOM_IN_FACTOR
 
 # vehicle shape constants
-CAR_LENGTH = 0.58
-CAR_WIDTH = 0.31
+CAR_LENGTH = 5.8
+CAR_WIDTH = 3.1
 
 class EnvRenderer(pyglet.window.Window):
     """
@@ -219,7 +219,7 @@ class EnvRenderer(pyglet.window.Window):
         f = ZOOM_IN_FACTOR if dy > 0 else ZOOM_OUT_FACTOR if dy < 0 else 1
 
         # If zoom_level is in the proper range
-        if .01 < self.zoom_level * f < 10:
+        if .01 < self.zoom_level * f < 100:
 
             self.zoom_level *= f
 
