@@ -405,7 +405,73 @@ class F110Env(gym.Env):
         """
         
         # call simulation step
-        obs = self.sim.step(action)
+        self.sim.step(action)
+        obs, done, info = self.get_observations()
+
+        # times
+        reward = self.timestep
+        self.current_time = self.current_time + self.timestep
+
+        return obs, reward, done, info
+
+    def reset(self, initial_states):
+        """
+        Reset the gym environment by given poses
+
+        Args:
+            initial_states (np.ndarray (num_agents, 7 or 3)): initial_states to reset agents to.
+                            [x,y,yaw] or [x,y,yaw,steering angle, velocity, yaw_rate, beta]
+
+        Returns:
+            obs (dict): observation of the current step
+            reward (float, default=self.timestep): step reward, currently is physics timestep
+            done (bool): if the simulation is done
+            info (dict): auxillary information dictionary
+        """
+
+        if initial_states.shape[1] == 3:  # to support legacy code
+            temp_states = np.zeros((initial_states.shape[0], 7))
+            temp_states[:, [0, 1, 2]] = initial_states  # keep first three states
+            initial_states = temp_states  # fill rest with zeros
+
+        # reset counters and data members
+        self.current_time = 0.0
+        self.collisions = np.zeros((self.num_agents, ))
+        self.num_toggles = 0
+        self.near_start = True
+        self.near_starts = np.array([True]*self.num_agents)
+        self.toggle_list = np.zeros((self.num_agents,))
+
+        # states after reset
+        self.start_xs = initial_states[:, 0]
+        self.start_ys = initial_states[:, 1]
+        self.start_thetas = initial_states[:, 2]
+        self.start_rot = np.array(
+            [[np.cos(-self.start_thetas[self.ego_idx]), -np.sin(-self.start_thetas[self.ego_idx])],
+             [np.sin(-self.start_thetas[self.ego_idx]), np.cos(-self.start_thetas[self.ego_idx])]])
+
+        # call reset to simulator
+        self.sim.reset(initial_states)
+
+        # get no input observations
+        obs, done, info = self.get_observations()
+        reward = 0
+
+        self.render_obs = {
+            'ego_idx': obs['ego_idx'],
+            'poses_x': obs['poses_x'],
+            'poses_y': obs['poses_y'],
+            'poses_theta': obs['poses_theta'],
+            'lap_times': obs['lap_times'],
+            'lap_counts': obs['lap_counts']
+            }
+        
+        return obs, reward, done, info
+
+    def get_observations(self):
+        # call simulation step
+        # obs = self.sim.step(action)
+        obs = self.sim.get_observations()
         obs['lap_times'] = self.lap_times
         obs['lap_counts'] = self.lap_counts
 
@@ -418,12 +484,8 @@ class F110Env(gym.Env):
             'poses_theta': obs['poses_theta'],
             'lap_times': obs['lap_times'],
             'lap_counts': obs['lap_counts']
-            }
+        }
 
-        # times
-        reward = self.timestep
-        self.current_time = self.current_time + self.timestep
-        
         # update data member
         self._update_state(obs)
 
@@ -431,52 +493,7 @@ class F110Env(gym.Env):
         done, toggle_list = self._check_done()
         info = {'checkpoint_done': toggle_list}
 
-        return obs, reward, done, info
-
-    def reset(self, poses):
-        """
-        Reset the gym environment by given poses
-
-        Args:
-            poses (np.ndarray (num_agents, 3)): poses to reset agents to
-
-        Returns:
-            obs (dict): observation of the current step
-            reward (float, default=self.timestep): step reward, currently is physics timestep
-            done (bool): if the simulation is done
-            info (dict): auxillary information dictionary
-        """
-        # reset counters and data members
-        self.current_time = 0.0
-        self.collisions = np.zeros((self.num_agents, ))
-        self.num_toggles = 0
-        self.near_start = True
-        self.near_starts = np.array([True]*self.num_agents)
-        self.toggle_list = np.zeros((self.num_agents,))
-
-        # states after reset
-        self.start_xs = poses[:, 0]
-        self.start_ys = poses[:, 1]
-        self.start_thetas = poses[:, 2]
-        self.start_rot = np.array([[np.cos(-self.start_thetas[self.ego_idx]), -np.sin(-self.start_thetas[self.ego_idx])], [np.sin(-self.start_thetas[self.ego_idx]), np.cos(-self.start_thetas[self.ego_idx])]])
-
-        # call reset to simulator
-        self.sim.reset(poses)
-
-        # get no input observations
-        action = np.zeros((self.num_agents, 2))
-        obs, reward, done, info = self.step(action)
-
-        self.render_obs = {
-            'ego_idx': obs['ego_idx'],
-            'poses_x': obs['poses_x'],
-            'poses_y': obs['poses_y'],
-            'poses_theta': obs['poses_theta'],
-            'lap_times': obs['lap_times'],
-            'lap_counts': obs['lap_counts']
-            }
-        
-        return obs, reward, done, info
+        return obs, done, info
 
     def update_map(self, map_path, map_ext):
         """

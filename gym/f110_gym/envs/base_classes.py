@@ -182,7 +182,7 @@ class RaceCar(object):
         """
         RaceCar.scan_simulator.set_map(map_path, map_ext)
 
-    def reset(self, pose):
+    def reset(self, pose, steering_angle=0, velocity=0, yaw_rate=0, beta=0):
         """
         Resets the vehicle to a pose
         
@@ -199,13 +199,20 @@ class RaceCar(object):
         self.in_collision = False
         # clear state
         if self.model == 'dynamic_ST':
-            self.state = np.zeros((7, ))
+            self.state = np.zeros((7,))
             self.state[0:2] = pose[0:2]
+            self.state[2] = steering_angle
+            self.state[3] = velocity
             self.state[4] = pose[2]
+            self.state[5] = yaw_rate
+            self.state[6] = beta
         elif self.model == 'MB':
             params_array = np.array(list(self.params.values()))
-            self.state = init_mb(np.array([pose[0], pose[1], 0, 0, pose[2], 0, 0]), params_array)
-        self.steer_buffer = np.empty((0, ))
+            self.state = init_mb(np.array([pose[0], pose[1],
+                                           steering_angle, velocity,
+                                           pose[2], yaw_rate,
+                                           beta]), params_array)
+        self.steer_buffer = np.empty((0,))
         # reset scan random generator
         self.scan_rng = np.random.default_rng(seed=self.seed)
 
@@ -334,9 +341,12 @@ class RaceCar(object):
             self.state[4] = self.state[4] + 2*np.pi
 
         # update scan
-        current_scan = RaceCar.scan_simulator.scan(np.append(self.state[0:2], self.state[4]), self.scan_rng)
+        current_scan = self.get_current_scan()
 
         return current_scan
+
+    def get_current_scan(self):
+        return RaceCar.scan_simulator.scan(np.append(self.state[0:2], self.state[4]), self.scan_rng)
 
     def update_opp_poses(self, opp_poses):
         """
@@ -493,13 +503,24 @@ class Simulator(object):
             observations (dict): dictionary for observations: poses of agents, current laser scan of each agent, collision indicators, etc.
         """
 
+        # doing step for all agents
+        for i, agent in enumerate(self.agents):
+            # update each agent's pose
+            agent.update_pose(control_inputs[i, 0], control_inputs[i, 1])
+
+        observations = self.get_observations()
+
+        return observations
+
+    def get_observations(self):
+        # get_current_scan
 
         agent_scans = []
 
         # looping over agents
         for i, agent in enumerate(self.agents):
             # update each agent's pose
-            current_scan = agent.update_pose(control_inputs[i, 0], control_inputs[i, 1])
+            current_scan = agent.get_current_scan()
             agent_scans.append(current_scan)
 
             # update sim's information of agent poses
@@ -543,7 +564,7 @@ class Simulator(object):
 
         return observations
 
-    def reset(self, poses):
+    def reset(self, initial_states):
         """
         Resets the simulation environment by given poses
 
@@ -553,10 +574,14 @@ class Simulator(object):
         Returns:
             None
         """
-        
-        if poses.shape[0] != self.num_agents:
+
+        if initial_states.shape[0] != self.num_agents:
             raise ValueError('Number of poses for reset does not match number of agents.')
 
         # loop over poses to reset
         for i in range(self.num_agents):
-            self.agents[i].reset(poses[i, :])
+            self.agents[i].reset(initial_states[i, [0, 1, 2]],
+                                 steering_angle=initial_states[i, 3],
+                                 velocity=initial_states[i, 4],
+                                 yaw_rate=initial_states[i, 5],
+                                 beta=initial_states[i, 6])
