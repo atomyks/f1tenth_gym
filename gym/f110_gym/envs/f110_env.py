@@ -126,10 +126,10 @@ class F110Env(gym.Env):
 
         try:
             self.model = kwargs['model']
-            # check valid options
-            assert self.model in ['dynamic_ST', 'MB']
         except:
             self.model = 'dynamic_ST'
+        # check valid options
+        assert self.model in ['dynamic_ST', 'MB']
 
         try:
             self.params = kwargs['params']
