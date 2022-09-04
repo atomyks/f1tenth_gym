@@ -8,12 +8,12 @@ map_path: './example_map'
 map_ext: '.png'
 
 # starting pose for map
-sx: 0.7
-sy: 0.0
-stheta: 1.37079632679
+sx: 0.12529
+sy: 2.15191
+stheta: 1.45828
 
 # raceline path and indices
-wpt_path: './example_waypoints.csv'
+wpt_path: './rounded_rectangle_waypoints.csv'
 wpt_delim: ';'
 wpt_rowskip: 3
 wpt_xind: 1
