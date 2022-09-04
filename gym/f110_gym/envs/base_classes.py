@@ -64,7 +64,8 @@ class RaceCar(object):
     scan_angles = None
     side_distances = None
 
-    def __init__(self, model, params, seed, is_ego=False, time_step=0.01, num_beams=1080, fov=4.7):
+    def __init__(self, model, steering_control_mode, drive_control_mode, params, seed, is_ego=False, time_step=0.01,
+                 num_beams=1080, fov=4.7):
         """
         Init function
 
@@ -82,6 +83,8 @@ class RaceCar(object):
 
         # initialization
         self.model = model
+        self.drive_control_mode = drive_control_mode
+        self.steering_control_mode = steering_control_mode
         self.params = params
         self.seed = seed
         self.is_ego = is_ego
@@ -256,13 +259,13 @@ class RaceCar(object):
 
         return in_collision
 
-    def update_pose(self, raw_steer, vel):
+    def update_pose(self, raw_steer, drive):
         """
         Steps the vehicle's physical simulation
 
         Args:
             steer (float): desired steering angle
-            vel (float): desired longitudinal velocity
+            drive (float): desired velocity/acceleration
 
         Returns:
             current_scan
@@ -282,8 +285,20 @@ class RaceCar(object):
 
 
         # steering angle velocity input to steering velocity acceleration input
-        accl, sv = pid(vel, steer, self.state[3], self.state[2], self.params['sv_max'], self.params['a_max'], self.params['v_max'], self.params['v_min'])
-        
+        accl, sv = pid(drive, steer, self.state[3], self.state[2], self.params['sv_max'], self.params['a_max'],
+                       self.params['v_max'], self.params['v_min'])
+
+        if self.drive_control_mode == 'acc':
+            if drive > self.params['a_max']:
+                accl = self.params['a_max']
+            elif drive < -self.params['a_max']:
+                accl = -self.params['a_max']
+            else:
+                accl = drive
+
+        if self.steering_control_mode == 'vel':
+            sv = steer
+
         # update physics, get RHS of diff'eq
         if self.model == 'dynamic_ST':
             f = vehicle_dynamics_st(
@@ -308,7 +323,6 @@ class RaceCar(object):
         elif self.model == 'MB':
             params_array = np.array(list(self.params.values()))
             f = vehicle_dynamics_mb(self.state, np.array([sv, accl]), params_array)
-            # print(f)
 
         # update state
         self.state = self.state + f * self.time_step
@@ -374,7 +388,8 @@ class Simulator(object):
 
     """
 
-    def __init__(self, model, params, num_agents, seed, time_step=0.01, ego_idx=0):
+    def __init__(self, model, steering_control_mode, drive_control_mode, params, num_agents, seed, time_step=0.01,
+                 ego_idx=0):
         """
         Init function
 
@@ -390,6 +405,8 @@ class Simulator(object):
             None
         """
         self.model = model
+        self.drive_control_mode = drive_control_mode
+        self.steering_control_mode = steering_control_mode
         self.num_agents = num_agents
         self.seed = seed
         self.time_step = time_step
@@ -403,10 +420,12 @@ class Simulator(object):
         # initializing agents
         for i in range(self.num_agents):
             if i == ego_idx:
-                ego_car = RaceCar(self.model, params, self.seed, time_step=self.time_step, is_ego=True)
+                ego_car = RaceCar(self.model, self.steering_control_mode, self.drive_control_mode, params, self.seed,
+                                  time_step=self.time_step, is_ego=True)
                 self.agents.append(ego_car)
             else:
-                agent = RaceCar(self.model, params, self.seed, time_step=self.time_step)
+                agent = RaceCar(self.model, self.steering_control_mode, self.drive_control_mode, params, self.seed,
+                                time_step=self.time_step)
                 self.agents.append(agent)
 
     def set_map(self, map_path, map_ext):

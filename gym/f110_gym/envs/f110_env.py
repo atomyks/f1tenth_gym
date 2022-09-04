@@ -88,6 +88,8 @@ class F110Env(gym.Env):
 
             num_agents (int, default=2): number of agents in the environment
 
+            drive_control_mode (str, default='v'): Drive command. Options: 'vel' - velocity, 'acc' - acceleration
+
             timestep (float, default=0.01): physics timestep
 
             ego_idx (int, default=0): ego's index in list of agents
@@ -261,6 +263,20 @@ class F110Env(gym.Env):
             self.num_agents = 2
 
         try:
+            self.drive_control_mode = kwargs['drive_control_mode']
+        except:
+            self.drive_control_mode = 'vel'
+        # check valid options
+        assert self.drive_control_mode in ['vel', 'acc']
+
+        try:
+            self.steering_control_mode = kwargs['steering_control_mode']
+        except:
+            self.steering_control_mode = 'angle'
+        # check valid options
+        assert self.steering_control_mode in ['angle', 'vel']
+
+        try:
             self.timestep = kwargs['timestep']
         except:
             self.timestep = 0.01
@@ -302,7 +318,8 @@ class F110Env(gym.Env):
         self.start_rot = np.eye(2)
 
         # initiate stuff
-        self.sim = Simulator(self.model, self.params, self.num_agents, self.seed, time_step=self.timestep)
+        self.sim = Simulator(self.model, self.steering_control_mode, self.drive_control_mode, self.params,
+                             self.num_agents, self.seed, time_step=self.timestep)
         self.sim.set_map(self.map_path, self.map_ext)
 
         # stateful observations for rendering
