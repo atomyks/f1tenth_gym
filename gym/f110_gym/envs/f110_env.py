@@ -358,8 +358,8 @@ class F110Env(gym.Env):
         temp_y[idx2] = -right_t - temp_y[idx2]
         temp_y[np.invert(np.logical_or(idx1, idx2))] = 0
 
-        dist2 = delta_pt[0, :]**2 + temp_y**2
-        closes = dist2 <= 0.1
+        dist2 = delta_pt[0, :] ** 2 + temp_y ** 2
+        closes = dist2 <= 15.0  # changed to work with 1:1 cars
         for i in range(self.num_agents):
             if closes[i] and not self.near_starts[i]:
                 self.near_starts[i] = True
@@ -543,6 +543,6 @@ class F110Env(gym.Env):
         F110Env.renderer.on_draw()
         F110Env.renderer.flip()
         if mode == 'human':
-            time.sleep(0.005)
+            time.sleep(0.1)
         elif mode == 'human_fast':
             pass
