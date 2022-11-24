@@ -283,6 +283,7 @@ def main():
             mode='human_fast')  # Naive implementation of 'human' render mode does not work well, use 'human_fast'
 
     print('Sim elapsed time:', laptime, 'Real elapsed time:', time.time() - start)
+    print("Felix was here")
 
 
 if __name__ == '__main__':

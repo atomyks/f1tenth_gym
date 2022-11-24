@@ -21,7 +21,6 @@
 # SOFTWARE.
 
 
-
 """
 Prototype of base classes
 Replacement of the old RaceCar, Simulator classes in C++
@@ -30,10 +29,12 @@ Author: Hongrui Zheng
 
 import numpy as np
 from numba import njit
+from scipy import integrate
 
-from f110_gym.envs.dynamic_models import vehicle_dynamics_st, vehicle_dynamics_mb, init_mb, pid
+from f110_gym.envs.dynamic_models import vehicle_dynamics_st, vehicle_dynamics_mb, init_mb, pid, accl_constraints, steering_constraint
 from f110_gym.envs.laser_models import ScanSimulator2D, check_ttc_jit, ray_cast
 from f110_gym.envs.collision_models import get_vertices, collision_multiple
+
 
 class RaceCar(object):
     """
@@ -94,10 +95,10 @@ class RaceCar(object):
 
         if self.model == 'dynamic_ST':
             # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
-            self.state = np.zeros((7, ))
+            self.state = np.zeros((7,))
         elif self.model == 'MB':
             params_array = np.array(list(self.params.values()))
-            self.state = init_mb(np.zeros((7, )), params_array)
+            self.state = init_mb(np.zeros((7,)), params_array)
 
         # pose of opponents in the world
         self.opp_poses = None
@@ -107,7 +108,7 @@ class RaceCar(object):
         self.steer_angle_vel = 0.0
 
         # steering delay buffer
-        self.steer_buffer = np.empty((0, ))
+        self.steer_buffer = np.empty((0,))
         self.steer_buffer_size = 2
 
         # collision identifier
@@ -124,39 +125,39 @@ class RaceCar(object):
             scan_ang_incr = RaceCar.scan_simulator.get_increment()
 
             # angles of each scan beam, distance from lidar to edge of car at each beam, and precomputed cosines of each angle
-            RaceCar.cosines = np.zeros((num_beams, ))
-            RaceCar.scan_angles = np.zeros((num_beams, ))
-            RaceCar.side_distances = np.zeros((num_beams, ))
+            RaceCar.cosines = np.zeros((num_beams,))
+            RaceCar.scan_angles = np.zeros((num_beams,))
+            RaceCar.side_distances = np.zeros((num_beams,))
 
-            dist_sides = params['width']/2.
-            dist_fr = (params['lf']+params['lr'])/2.
+            dist_sides = params['width'] / 2.
+            dist_fr = (params['lf'] + params['lr']) / 2.
 
             for i in range(num_beams):
-                angle = -fov/2. + i*scan_ang_incr
+                angle = -fov / 2. + i * scan_ang_incr
                 RaceCar.scan_angles[i] = angle
                 RaceCar.cosines[i] = np.cos(angle)
 
                 if angle > 0:
-                    if angle < np.pi/2:
+                    if angle < np.pi / 2:
                         # between 0 and pi/2
                         to_side = dist_sides / np.sin(angle)
                         to_fr = dist_fr / np.cos(angle)
                         RaceCar.side_distances[i] = min(to_side, to_fr)
                     else:
                         # between pi/2 and pi
-                        to_side = dist_sides / np.cos(angle - np.pi/2.)
-                        to_fr = dist_fr / np.sin(angle - np.pi/2.)
+                        to_side = dist_sides / np.cos(angle - np.pi / 2.)
+                        to_fr = dist_fr / np.sin(angle - np.pi / 2.)
                         RaceCar.side_distances[i] = min(to_side, to_fr)
                 else:
-                    if angle > -np.pi/2:
+                    if angle > -np.pi / 2:
                         # between 0 and -pi/2
                         to_side = dist_sides / np.sin(-angle)
                         to_fr = dist_fr / np.cos(-angle)
                         RaceCar.side_distances[i] = min(to_side, to_fr)
                     else:
                         # between -pi/2 and -pi
-                        to_side = dist_sides / np.cos(-angle - np.pi/2)
-                        to_fr = dist_fr / np.sin(-angle - np.pi/2)
+                        to_side = dist_sides / np.cos(-angle - np.pi / 2)
+                        to_fr = dist_fr / np.sin(-angle - np.pi / 2)
                         RaceCar.side_distances[i] = min(to_side, to_fr)
 
     def update_params(self, params):
@@ -171,7 +172,7 @@ class RaceCar(object):
             None
         """
         self.params = params
-    
+
     def set_map(self, map_path, map_ext):
         """
         Sets the map for scan simulator
@@ -229,7 +230,7 @@ class RaceCar(object):
 
         # starting from original scan
         new_scan = scan
-        
+
         # loop over all opponent vehicle poses
         for opp_pose in self.opp_poses:
             # get vertices of current oppoenent
@@ -252,7 +253,7 @@ class RaceCar(object):
         Returns:
             None
         """
-        
+
         in_collision = check_ttc_jit(current_scan, self.state[3], self.scan_angles, self.cosines, self.side_distances, self.ttc_thresh)
 
         # if in collision stop vehicle
@@ -265,6 +266,16 @@ class RaceCar(object):
         self.in_collision = in_collision
 
         return in_collision
+
+    @staticmethod
+    def func_MB(t, x, u, p, use_kinematic):
+        f = vehicle_dynamics_mb(x, u, p, use_kinematic)
+        return f
+
+    @staticmethod
+    def func_MB2(x, t, u, p, use_kinematic):
+        f = vehicle_dynamics_mb(x, u, p, use_kinematic)
+        return f
 
     def update_pose(self, raw_steer, drive):
         """
@@ -290,7 +301,6 @@ class RaceCar(object):
             self.steer_buffer = self.steer_buffer[:-1]
             self.steer_buffer = np.append(raw_steer, self.steer_buffer)
 
-
         # steering angle velocity input to steering velocity acceleration input
         accl, sv = pid(drive, steer, self.state[3], self.state[2], self.params['sv_max'], self.params['a_max'],
                        self.params['v_max'], self.params['v_min'])
@@ -305,6 +315,8 @@ class RaceCar(object):
 
         if self.steering_control_mode == 'vel':
             sv = steer
+
+        integration_method = 'LSODA_old'  # 'LSODA'  'euler' 'LSODA_old' 'RK45'
 
         # update physics, get RHS of diff'eq
         if self.model == 'dynamic_ST':
@@ -327,18 +339,82 @@ class RaceCar(object):
                 self.params['a_max'],
                 self.params['v_min'],
                 self.params['v_max'])
+            # update state
+            self.state = self.state + f * self.time_step
         elif self.model == 'MB':
             params_array = np.array(list(self.params.values()))
-            f = vehicle_dynamics_mb(self.state, np.array([sv, accl]), params_array)
 
-        # update state
-        self.state = self.state + f * self.time_step
+            # steering constraints
+            s_min = params_array[2]  # minimum steering angle [rad]
+            s_max = params_array[3]  # maximum steering angle [rad]
+            sv_min = params_array[4]  # minimum steering velocity [rad/s]
+            sv_max = params_array[5]  # maximum steering velocity [rad/s]
+
+            # longitudinal constraints
+            v_min = params_array[6]  # minimum velocity [m/s]
+            v_max = params_array[7]  # minimum velocity [m/s]
+            v_switch = params_array[8]  # switching velocity [m/s]
+            a_max = params_array[9]  # maximum absolute acceleration [m/s^2]
+
+            # split of brake and engine torque
+            T_sb = params_array[40]
+            T_se = params_array[41]
+
+            m = params_array[10]  # vehicle mass [kg]  MASS
+
+            R_w = params_array[39]  # effective wheel/tire radius  chosen as tire rolling radius RR  taken from ADAMS documentation [m]
+
+            u = np.array([steering_constraint(self.state[2], sv, s_min, s_max, sv_min, sv_max),
+                          accl_constraints(self.state[3], accl, v_switch, a_max, v_min, v_max)])
+
+            if u[1] > 0:
+                T_B = 0.0
+                T_E = m * R_w * u[1]
+            else:
+                T_B = m * R_w * u[1]
+                T_E = 0.0
+
+            front_tire_force = 0.5 * T_sb * T_B + 0.5 * T_se * T_E
+            rear_tire_force = 0.5 * (1 - T_sb) * T_B + 0.5 * (1 - T_se) * T_E
+
+            control_input = np.array([u[0], front_tire_force, rear_tire_force])
+
+            if np.abs(self.state[3]) < 0.01:
+                use_kinematic = True
+            else:
+                use_kinematic = False
+
+            if integration_method == 'euler':
+                f = vehicle_dynamics_mb(self.state, control_input, params_array, use_kinematic)
+                # update state
+                self.state = self.state + f * self.time_step
+            elif integration_method == 'LSODA':
+                x_left = integrate.solve_ivp(self.func_MB, (0.0, self.time_step),
+                                             self.state, method='LSODA',
+                                             args=(control_input, params_array, use_kinematic))
+                self.state = x_left.y[:, -1]
+            elif integration_method == 'RK45':
+                x_left = integrate.solve_ivp(self.func_MB, (0.0, self.time_step),
+                                             self.state, method='RK45',
+                                             args=(control_input, params_array, use_kinematic))
+                self.state = x_left.y[:, -1]
+            elif integration_method == 'LSODA_old':
+
+                x_left = integrate.odeint(self.func_MB2, self.state,
+                                          np.array([0.0, self.time_step]),
+                                          args=(control_input, params_array, use_kinematic),
+                                          mxstep=10000, full_output=1)
+                self.state = x_left[0][1]
+
+            for iState in range(23, 27):
+                if self.state[iState] < 0.0:
+                    self.state[iState] = 0.0
 
         # bound yaw angle
-        if self.state[4] > 2*np.pi:
-            self.state[4] = self.state[4] - 2*np.pi
+        if self.state[4] > 2 * np.pi:
+            self.state[4] = self.state[4] - 2 * np.pi
         elif self.state[4] < 0:
-            self.state[4] = self.state[4] + 2*np.pi
+            self.state[4] = self.state[4] + 2 * np.pi
 
         # update scan
         current_scan = self.get_current_scan()
@@ -359,7 +435,6 @@ class RaceCar(object):
             None
         """
         self.opp_poses = opp_poses
-
 
     def update_scan(self, agent_scans, agent_index):
         """
@@ -383,6 +458,7 @@ class RaceCar(object):
         new_scan = self.ray_cast_agents(current_scan)
 
         agent_scans[agent_index] = new_scan
+
 
 class Simulator(object):
     """
@@ -424,8 +500,8 @@ class Simulator(object):
         self.params = params
         self.agent_poses = np.empty((self.num_agents, 3))
         self.agents = []
-        self.collisions = np.zeros((self.num_agents, ))
-        self.collision_idx = -1 * np.ones((self.num_agents, ))
+        self.collisions = np.zeros((self.num_agents,))
+        self.collision_idx = -1 * np.ones((self.num_agents,))
 
         # initializing agents
         for i in range(self.num_agents):
@@ -451,7 +527,6 @@ class Simulator(object):
         """
         for agent in self.agents:
             agent.set_map(map_path, map_ext)
-
 
     def update_params(self, params, agent_idx=-1):
         """
@@ -488,9 +563,8 @@ class Simulator(object):
         # get vertices of all agents
         all_vertices = np.empty((self.num_agents, 4, 2))
         for i in range(self.num_agents):
-            all_vertices[i, :, :] = get_vertices(np.append(self.agents[i].state[0:2],self.agents[i].state[4]), self.params['length'], self.params['width'])
+            all_vertices[i, :, :] = get_vertices(np.append(self.agents[i].state[0:2], self.agents[i].state[4]), self.params['length'], self.params['width'])
         self.collisions, self.collision_idx = collision_multiple(all_vertices)
-
 
     def step(self, control_inputs):
         """
@@ -531,7 +605,7 @@ class Simulator(object):
 
         for i, agent in enumerate(self.agents):
             # update agent's information on other agents
-            opp_poses = np.concatenate((self.agent_poses[0:i, :], self.agent_poses[i+1:, :]), axis=0)
+            opp_poses = np.concatenate((self.agent_poses[0:i, :], self.agent_poses[i + 1:, :]), axis=0)
             agent.update_opp_poses(opp_poses)
 
             # update each agent's current scan based on other agents
@@ -545,14 +619,14 @@ class Simulator(object):
         # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
         # collision_angles is removed from observations
         observations = {'ego_idx': self.ego_idx,
-            'scans': [],
-            'poses_x': [],
-            'poses_y': [],
-            'poses_theta': [],
-            'linear_vels_x': [],
-            'linear_vels_y': [],
-            'ang_vels_z': [],
-            'collisions': self.collisions}
+                        'scans': [],
+                        'poses_x': [],
+                        'poses_y': [],
+                        'poses_theta': [],
+                        'linear_vels_x': [],
+                        'linear_vels_y': [],
+                        'ang_vels_z': [],
+                        'collisions': self.collisions}
         for i, agent in enumerate(self.agents):
             observations['scans'].append(agent_scans[i])
             observations['poses_x'].append(agent.state[0])

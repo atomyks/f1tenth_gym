@@ -287,7 +287,7 @@ def init_mb(init_state, params):
 
 
 @njit(cache=True)
-def vehicle_dynamics_mb(x, u_init, params):
+def vehicle_dynamics_mb(x, u_init, params, use_kinematic=False):
     """
     vehicleDynamics_mb - multi-body vehicle dynamics based on the DOT (department of transportation) vehicle dynamics
     reference point: center of mass
@@ -353,6 +353,7 @@ def vehicle_dynamics_mb(x, u_init, params):
     #u1 = steering angle velocity of front wheels
     #u2 = acceleration
 
+    u = u_init
 
     # vehicle body dimensions
     length =  params[0]  # vehicle length [m]
@@ -426,16 +427,16 @@ def vehicle_dynamics_mb(x, u_init, params):
     E_r = params[45]  # [needs conversion if nonzero]  ER
 
 
-    # consider steering and acceleration constraints
-    u = np.array([steering_constraint(x[2], u_init[0], s_min, s_max, sv_min, sv_max), accl_constraints(x[3], u_init[1], v_switch, a_max, v_min, v_max)])
+    # consider steering and acceleration constraints - outside of the integration
+    # u = np.array([steering_constraint(x[2], u_init[0], s_min, s_max, sv_min, sv_max), accl_constraints(x[3], u_init[1], v_switch, a_max, v_min, v_max)])
 
-    #compute slip angle at cg
-    #switch to kinematic model for small velocities
-    if abs(x[3]) < 0.5:
+    #compute slip angle at cg - outside of the integration
+    # switch to kinematic model for small velocities handeled outside
+    if use_kinematic:
         beta = 0.
     else:
         beta = np.arctan(x[10]/x[3])
-    vel = np.sqrt(x[3]**2 + x[10]**2)
+        vel = np.sqrt(x[3]**2 + x[10]**2)
 
     #vertical tire forces
     F_z_LF = (x[16] + R_w*(np.cos(x[13]) - 1) - 0.5*T_f*np.sin(x[13]))*K_zt
@@ -450,20 +451,25 @@ def vehicle_dynamics_mb(x, u_init, params):
     u_w_rr = x[3] - 0.5*T_r*x[5]
 
     #negative wheel spin forbidden
-    if u_w_lf < 0.0:
-        u_w_lf *= 0
+    u_w_lf = np.maximum(u_w_lf, 0.0)
+    u_w_rf = np.maximum(u_w_rf, 0.0)
+    u_w_lr = np.maximum(u_w_lr, 0.0)
+    u_w_rr = np.maximum(u_w_rr, 0.0)
+    # if u_w_lf < 0.0:
+    #     u_w_lf *= 0
+    #
+    # if u_w_rf < 0.0:
+    #     u_w_rf *= 0
+    #
+    # if u_w_lr < 0.0:
+    #     u_w_lr *= 0
+    #
+    # if u_w_rr < 0.0:
+    #     u_w_rr *= 0
 
-    if u_w_rf < 0.0:
-        u_w_rf *= 0
-
-    if u_w_lr < 0.0:
-        u_w_lr *= 0
-
-    if u_w_rr < 0.0:
-        u_w_rr *= 0
     #compute longitudinal slip
     #switch to kinematic model for small velocities
-    if abs(x[3]) < 0.5:
+    if use_kinematic:
         s_lf = 0.
         s_rf = 0.
         s_lr = 0.
@@ -476,7 +482,7 @@ def vehicle_dynamics_mb(x, u_init, params):
 
     #lateral slip angles
     #switch to kinematic model for small velocities
-    if abs(x[3]) < 0.5:
+    if use_kinematic:
         alpha_LF = 0.
         alpha_RF = 0.
         alpha_LR = 0.
@@ -615,7 +621,7 @@ def vehicle_dynamics_mb(x, u_init, params):
     # dynamics common with single-track model
     f = np.zeros((29,))# init 'right hand side'
     # switch to kinematic model for small velocities
-    if abs(x[3]) < 0.5:
+    if use_kinematic:
         # wheelbase
         # lwb = lf + lr
 
@@ -676,27 +682,27 @@ def vehicle_dynamics_mb(x, u_init, params):
     f[21] = x[22] # 22
     f[22] = g - 1/m_ur*sumZ_ur # 23
 
-    #convert acceleration input to brake and engine torque
-    if u[1]>0:
-        T_B = 0.0
-        T_E = m*R_w*u[1]
-    else:
-        T_B = m*R_w*u[1]
-        T_E = 0.0
+    #convert acceleration input to brake and engine torque - splitting for brake/drive torque is outside of the integration
+    # if u[1]>0:
+    # T_B = 0.0
+    # T_E = m*R_w*u[1]
+    # else:
+    #     T_B = m*R_w*u[1]
+    #     T_E = 0.0
 
 
 
-    #wheel dynamics (p.T  new parameter for torque splitting)
-    f[23] = 1/I_y_w*(-R_w*F_x_LF + 0.5*T_sb*T_B + 0.5*T_se*T_E) # 24
-    f[24] = 1/I_y_w*(-R_w*F_x_RF + 0.5*T_sb*T_B + 0.5*T_se*T_E) # 25
-    f[25] = 1/I_y_w*(-R_w*F_x_LR + 0.5*(1-T_sb)*T_B + 0.5*(1-T_se)*T_E) # 26
-    f[26] = 1/I_y_w*(-R_w*F_x_RR + 0.5*(1-T_sb)*T_B + 0.5*(1-T_se)*T_E) # 27
+    #wheel dynamics (p.T  new parameter for torque splitting) - splitting for brake/drive torque is outside of the integration
+    f[23] = 1/I_y_w*(-R_w*F_x_LF + u[1]) # 24
+    f[24] = 1/I_y_w*(-R_w*F_x_RF + u[1]) # 25
+    f[25] = 1/I_y_w*(-R_w*F_x_LR + u[2]) # 26
+    f[26] = 1/I_y_w*(-R_w*F_x_RR + u[2]) # 27
 
-    #negative wheel spin forbidden
-    for iState in range(23, 27):
-        if x[iState] < 0.0:
-            x[iState] = 0.0
-            f[iState] = 0.0
+    #negative wheel spin forbidden handeled outside of this function
+    # for iState in range(23, 27):
+    #     # if x[iState] < 0.0:
+    #     x[iState] = 0.0
+    #     f[iState] = 0.0
 
     #compliant joint equations
     f[27] = dot_delta_y_f # 28

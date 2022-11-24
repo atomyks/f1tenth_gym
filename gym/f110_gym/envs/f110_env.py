@@ -161,7 +161,7 @@ class F110Env(gym.Env):
                     'v_min': -13.9,  # minimum velocity [m/s]
                     'v_max': 45.8,  # minimum velocity [m/s]
                     'v_switch': 4.755,  # switching velocity [m/s]
-                    'a_max': 11.5,  # maximum absolute acceleration [m/s^2]
+                    'a_max': 3.5,  # maximum absolute acceleration [m/s^2]
 
                     # masses
                     'm': 1225.887,  # vehicle mass [kg]  MASS

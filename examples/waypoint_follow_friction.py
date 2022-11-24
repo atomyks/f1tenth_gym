@@ -229,9 +229,9 @@ def main():
     main entry point
     """
 
-    work = {'mass': 1225.88, 'lf': 0.80597534362552312, 'tlad': 9.6461887897713965, 'vgain': 0.950338203837889}
-    use_dyn_friction = True
-    constant_friction = 0.5
+    work = {'mass': 1225.88, 'lf': 0.80597534362552312, 'tlad': 10.6461887897713965, 'vgain': 0.950338203837889}
+    use_dyn_friction = False
+    constant_friction = 0.4
 
     with open('config_example_map.yaml') as file:
         conf_dict = yaml.load(file, Loader=yaml.FullLoader)
@@ -274,7 +274,7 @@ def main():
 
     # init vector = [x,y,yaw,steering angle, velocity, yaw_rate, beta]
     obs, step_reward, done, info = env.reset(
-        np.array([[conf.sx, conf.sy, conf.stheta, 0.0, 5.0, 0.0, 0.0]]))
+        np.array([[conf.sx, conf.sy, conf.stheta, 0.0, 0.0, 0.0, 0.0]]))
     env.render()
 
     laptime = 0.0
@@ -297,7 +297,7 @@ def main():
 
         step_reward = 0.0
         for i in range(num_of_sim_steps):
-            obs, rew, done, info = env.step(np.array([[steer, speed]]))
+            obs, rew, done, info = env.step(np.array([[steer, 10.0]]))
             step_reward += rew
         laptime += step_reward
         env.render(
