@@ -92,6 +92,10 @@ class RaceCar(object):
         self.time_step = time_step
         self.num_beams = num_beams
         self.fov = fov
+        self.tire_forces = np.zeros(8)
+        self.longitudinal_slip = np.zeros(4)
+        self.lateral_slip = np.zeros(4)
+        self.vertical_tire_forces = np.zeros(4)
 
         if self.model == 'dynamic_ST':
             # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
@@ -269,12 +273,16 @@ class RaceCar(object):
 
     @staticmethod
     def func_MB(t, x, u, p, use_kinematic):
-        f = vehicle_dynamics_mb(x, u, p, use_kinematic)
+        f, F_x_LF, F_x_RF, F_x_LR, F_x_RR, F_y_LF, F_y_RF, F_y_LR, F_y_RR, \
+            s_lf, s_rf, s_lr, s_rr, alpha_LF, alpha_RF, alpha_LR, alpha_RR, \
+            F_z_LF, F_z_RF, F_z_LR, F_z_RR = vehicle_dynamics_mb(x, u, p, use_kinematic)
         return f
 
     @staticmethod
     def func_MB2(x, t, u, p, use_kinematic):
-        f = vehicle_dynamics_mb(x, u, p, use_kinematic)
+        f, F_x_LF, F_x_RF, F_x_LR, F_x_RR, F_y_LF, F_y_RF, F_y_LR, F_y_RR, \
+            s_lf, s_rf, s_lr, s_rr, alpha_LF, alpha_RF, alpha_LR, alpha_RR, \
+            F_z_LF, F_z_RF, F_z_LR, F_z_RR = vehicle_dynamics_mb(x, u, p, use_kinematic)
         return f
 
     def update_pose(self, raw_steer, drive):
@@ -404,6 +412,13 @@ class RaceCar(object):
                                           np.array([0.0, self.time_step]),
                                           args=(control_input, params_array, use_kinematic),
                                           mxstep=10000, full_output=1)
+                _, F_x_LF, F_x_RF, F_x_LR, F_x_RR, F_y_LF, F_y_RF, F_y_LR, F_y_RR, \
+                    s_lf, s_rf, s_lr, s_rr, alpha_LF, alpha_RF, alpha_LR, alpha_RR, \
+                    F_z_LF, F_z_RF, F_z_LR, F_z_RR = vehicle_dynamics_mb(self.state, control_input, params_array, use_kinematic)
+                self.tire_forces = np.array([F_x_LF, F_x_RF, F_x_LR, F_x_RR, F_y_LF, F_y_RF, F_y_LR, F_y_RR])
+                self.longitudinal_slip = np.array([s_lf, s_rf, s_lr, s_rr])
+                self.lateral_slip = np.array([alpha_LF, alpha_RF, alpha_LR, alpha_RR])
+                self.vertical_tire_forces = np.array([F_z_LF, F_z_RF, F_z_LR, F_z_RR])
                 self.state = x_left[0][1]
 
             for iState in range(23, 27):

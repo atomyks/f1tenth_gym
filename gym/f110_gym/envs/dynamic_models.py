@@ -708,7 +708,21 @@ def vehicle_dynamics_mb(x, u_init, params, use_kinematic=False):
     f[27] = dot_delta_y_f # 28
     f[28] = dot_delta_y_r # 29
 
-    return f
+    # longitudinal slip
+    # s_lf
+    # s_rf
+    # s_lr
+    # s_rr
+
+    # lateral slip
+    # alpha_LF
+    # alpha_RF
+    # alpha_LR
+    # alpha_RR
+
+    return f, F_x_LF, F_x_RF, F_x_LR, F_x_RR, F_y_LF, F_y_RF, F_y_LR, F_y_RR, \
+        s_lf, s_rf, s_lr, s_rr, alpha_LF, alpha_RF, alpha_LR, alpha_RR, \
+        F_z_LF, F_z_RF, F_z_LR, F_z_RR
 
 
 @njit(cache=True)
